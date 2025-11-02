@@ -1,0 +1,5 @@
+{
+  "name": "QuímIA Chemistry ChatBot",
+  "description": "An intelligent chatbot powered by Gemini to answer questions about the history of chemistry, molecules, and chemical substances, with a focus on scientific accuracy and sourced information.",
+  "requestFramePermissions": []
+}
