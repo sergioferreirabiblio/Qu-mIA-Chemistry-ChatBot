@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import type { Message, Source } from './types';
@@ -13,6 +14,12 @@ const translations: Record<Language, {
   inputPlaceholder: string;
   sourcesTitle: string;
   suggestedPrompts: string[];
+  feedbackHistoryTitle: string;
+  clearHistory: string;
+  noHistory: string;
+  feedbackRoleUser: string;
+  feedbackRoleModel: string;
+  apiError: string;
 }> = {
   en: {
     title: 'Gemini Chemistry Chat',
@@ -26,6 +33,12 @@ const translations: Record<Language, {
       "What is the chemical structure of caffeine?",
       "Tell me about the history of chemistry in Brazil.",
     ],
+    feedbackHistoryTitle: 'Feedback History',
+    clearHistory: 'Clear History',
+    noHistory: 'No feedback has been recorded yet.',
+    feedbackRoleUser: 'You',
+    feedbackRoleModel: 'Bot',
+    apiError: "I'm sorry, an error occurred while generating a response. Please check your network connection and try again.",
   },
   pt: {
     title: 'QuímIA Chat de Química',
@@ -39,6 +52,12 @@ const translations: Record<Language, {
       'Qual é a estrutura química da cafeína?',
       'Fale-me sobre a história da química no Brasil.',
     ],
+    feedbackHistoryTitle: 'Histórico de Feedback',
+    clearHistory: 'Limpar Histórico',
+    noHistory: 'Nenhum feedback foi registrado ainda.',
+    feedbackRoleUser: 'Você',
+    feedbackRoleModel: 'Bot',
+    apiError: "Desculpe, ocorreu um erro ao gerar uma resposta. Por favor, verifique sua conexão de rede e tente novamente.",
   },
   es: {
     title: 'QuímIA Chat de Química',
@@ -52,6 +71,12 @@ const translations: Record<Language, {
       '¿Cuál es la estructura química de la cafeína?',
       'Háblame de la historia de la química en Brasil.',
     ],
+    feedbackHistoryTitle: 'Historial de Comentarios',
+    clearHistory: 'Limpiar Historial',
+    noHistory: 'Aún no se han registrado comentarios.',
+    feedbackRoleUser: 'Tú',
+    feedbackRoleModel: 'Bot',
+    apiError: "Lo siento, ocurrió un error al generar una respuesta. Por favor, compruebe su conexión de red y vuelva a intentarlo.",
   },
 };
 
@@ -131,14 +156,14 @@ const ChevronUpIcon = () => (
   </svg>
 );
 
-const ThumbsUpIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+const ThumbsUpIcon = ({className = "w-5 h-5"}: {className?: string}) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M6.633 10.5c.806 0 1.533-.422 2.031-1.08a9.041 9.041 0 0 1 2.861-2.4c.723-.384 1.35-.956 1.653-1.715a4.498 4.498 0 0 0 .322-1.672V3a.75.75 0 0 1 .75-.75A2.25 2.25 0 0 1 16.5 4.5c0 1.152-.26 2.243-.723 3.218-.266.558.107 1.282.725 1.282h3.126c1.026 0 1.945.694 2.054 1.715.045.422.068.85.068 1.285a11.95 11.95 0 0 1-2.649 7.521c-.388.482-.987.729-1.605.729H13.48c-.483 0-.964-.078-1.423-.23l-3.114-1.04a4.501 4.501 0 0 0-1.423-.23H6.5" />
   </svg>
 );
 
-const ThumbsDownIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+const ThumbsDownIcon = ({className = "w-5 h-5"}: {className?: string}) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M17.367 13.5c-.806 0-1.533.422-2.031 1.08a9.041 9.041 0 0 1-2.861 2.4c-.723.384-1.35.956-1.653 1.715a4.498 4.498 0 0 0-.322 1.672v1.672a.75.75 0 0 1-.75.75A2.25 2.25 0 0 1 7.5 19.5c0-1.152.26-2.243.723-3.218.266-.558-.107-1.282-.725-1.282H4.374c-1.026 0-1.945-.694-2.054-1.715A12.134 12.134 0 0 1 2.75 6.5c.388-.962 1.284-1.69 2.28-1.816.502-.062 1.004-.093 1.506-.093h2.123c.806 0 1.533-.422 2.031-1.08a9.041 9.041 0 0 1 2.861-2.4c.723.384 1.35-.956 1.653-1.715a4.498 4.498 0 0 0 .322-1.672V3a.75.75 0 0 1 .75-.75c.873 0 1.638.422 2.054 1.08.416.658.599 1.48.513 2.311-.086.83-.498 1.597-1.08 2.186-.582.59-1.35.92-2.186 1.08-.83.086-1.652-.097-2.311-.513A4.502 4.502 0 0 0 17.367 13.5Z" />
   </svg>
 );
@@ -155,6 +180,37 @@ const ExportIcon = () => (
   </svg>
 );
 
+const FeedbackHistoryIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h7.5M8.25 12h7.5m-7.5 5.25h7.5M3.75 6.75h.007v.008H3.75V6.75Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM3.75 12h.007v.008H3.75V12Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm-.375 5.25h.007v.008H3.75V17.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+    </svg>
+);
+
+const XIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+    </svg>
+);
+
+
+const WebIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-slate-400">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9V3m0 18a9 9 0 009-9m-9 9a9 9 0 00-9-9" />
+    </svg>
+);
+
+const PdfIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-slate-400">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9Z" />
+    </svg>
+);
+
+const ErrorIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 text-red-400">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+    </svg>
+);
+
 const SYSTEM_INSTRUCTION_BASE = `You are a world-class expert chatbot specializing in the History of Chemistry, with a deep focus on its development in Brazil. Your knowledge is vast, drawing from scientific literature, and you are familiar with chemical databases and ontologies like ChEBI and EMMO. When asked about molecules or substances, you provide accurate, detailed information. For any historical claim or scientific fact, you MUST cite your sources. You will be provided with search results to ground your answers. Always use these results to formulate your response and list the source URLs at the end of your answer under a 'Sources:' heading.`;
 
 const getSystemInstruction = (lang: Language): string => {
@@ -165,6 +221,111 @@ const getSystemInstruction = (lang: Language): string => {
   };
   return `${SYSTEM_INSTRUCTION_BASE}\n\nYou MUST respond in ${langMap[lang]}.`;
 };
+
+
+// --- Feedback History Components & Types ---
+const FEEDBACK_HISTORY_KEY = 'gemini-chemistry-feedback-history';
+
+interface FeedbackEntry {
+    id: string;
+    content: string;
+    role: Role;
+    feedback: 'up' | 'down';
+    timestamp: string;
+}
+
+interface FeedbackHistoryModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    translations: {
+        feedbackHistoryTitle: string;
+        clearHistory: string;
+        noHistory: string;
+        feedbackRoleUser: string;
+        feedbackRoleModel: string;
+    };
+}
+
+const FeedbackHistoryModal: React.FC<FeedbackHistoryModalProps> = ({ isOpen, onClose, translations }) => {
+    const [history, setHistory] = useState<FeedbackEntry[]>([]);
+
+    useEffect(() => {
+        if (isOpen) {
+            try {
+                const historyString = localStorage.getItem(FEEDBACK_HISTORY_KEY);
+                const historyData: Record<string, FeedbackEntry> = historyString ? JSON.parse(historyString) : {};
+                const sortedHistory = Object.values(historyData).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+                setHistory(sortedHistory);
+            } catch (error) {
+                console.error("Failed to load feedback history from localStorage:", error);
+                setHistory([]);
+            }
+        }
+    }, [isOpen]);
+
+    const handleClearHistory = () => {
+        try {
+            localStorage.removeItem(FEEDBACK_HISTORY_KEY);
+            setHistory([]);
+        } catch (error) {
+            console.error("Failed to clear feedback history in localStorage:", error);
+        }
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="feedback-history-title">
+            <div className="bg-slate-800 w-full max-w-2xl max-h-[80vh] rounded-2xl shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
+                <header className="flex items-center justify-between p-4 border-b border-slate-700">
+                    <h2 id="feedback-history-title" className="text-xl font-bold text-white">{translations.feedbackHistoryTitle}</h2>
+                    <button onClick={onClose} className="p-1 rounded-full text-slate-400 hover:bg-slate-700 hover:text-white transition-colors" aria-label="Close">
+                        <XIcon />
+                    </button>
+                </header>
+                <main className="flex-grow overflow-y-auto p-4">
+                    {history.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                            <FeedbackHistoryIcon />
+                            <p className="mt-2">{translations.noHistory}</p>
+                        </div>
+                    ) : (
+                        <ul className="space-y-3">
+                            {history.map(item => (
+                                <li key={item.id} className="bg-slate-900/50 p-3 rounded-lg flex items-start gap-4">
+                                    <div className="flex-shrink-0 pt-1">
+                                        {item.role === Role.MODEL ? <BotIcon /> : <UserIcon />}
+                                    </div>
+                                    <div className="flex-grow">
+                                        <p className="text-sm text-slate-300 line-clamp-3">{item.content}</p>
+                                        <div className="text-xs text-slate-500 mt-2 flex items-center justify-between">
+                                            <span>{new Date(item.timestamp).toLocaleString()}</span>
+                                            {item.feedback === 'up' 
+                                                ? <ThumbsUpIcon className="w-5 h-5 text-green-400" /> 
+                                                : <ThumbsDownIcon className="w-5 h-5 text-red-400" />
+                                            }
+                                        </div>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </main>
+                <footer className="p-4 border-t border-slate-700 flex justify-end">
+                    <button 
+                        onClick={handleClearHistory}
+                        disabled={history.length === 0}
+                        className="flex items-center gap-2 px-4 py-2 bg-red-600/20 text-red-400 rounded-md hover:bg-red-600/40 hover:text-red-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <TrashIcon />
+                        {translations.clearHistory}
+                    </button>
+                </footer>
+            </div>
+        </div>
+    );
+};
+
 
 // --- Main Chat Components ---
 
@@ -202,6 +363,17 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, sourcesTitle, onFeed
         console.error('Failed to copy sources: ', err);
     });
   };
+
+  if (message.isError) {
+    return (
+      <div className="flex items-start gap-4 my-4 justify-start">
+        <ErrorIcon />
+        <div className="max-w-xl p-4 rounded-xl shadow-md bg-slate-800 text-red-300 border border-red-500/50 rounded-tl-none">
+          <p className="whitespace-pre-wrap">{message.content}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -272,24 +444,32 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, sourcesTitle, onFeed
               {isSourcesExpanded ? <ChevronUpIcon /> : <ChevronDownIcon />}
             </button>
             {isSourcesExpanded && (
-              <ul id={`sources-${message.content.slice(0, 10)}`} className="list-decimal list-inside text-sm space-y-2 mt-2">
-                {message.sources.map((source, index) => (
-                  <li key={index}>
-                    <a
-                      href={source.uri}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-indigo-400 hover:underline"
-                    >
-                      {source.title}
-                    </a>
-                    {source.snippet && (
-                      <blockquote className="mt-1 pl-2 border-l-2 border-slate-500 text-slate-400 text-xs italic">
-                        "{source.snippet}"
-                      </blockquote>
-                    )}
-                  </li>
-                ))}
+              <ul id={`sources-${message.content.slice(0, 10)}`} className="text-sm space-y-2 mt-2">
+                {message.sources.map((source, index) => {
+                    const icon = source.uri.toLowerCase().endsWith('.pdf') ? <PdfIcon /> : <WebIcon />;
+                    return (
+                      <li key={index} className="flex items-start gap-2">
+                        <div className="pt-1 flex-shrink-0">
+                          {icon}
+                        </div>
+                        <div>
+                            <a
+                              href={source.uri}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-indigo-400 hover:underline"
+                            >
+                              {source.title}
+                            </a>
+                            {source.snippet && (
+                              <blockquote className="mt-1 pl-2 border-l-2 border-slate-500 text-slate-400 text-xs italic">
+                                "{source.snippet}"
+                              </blockquote>
+                            )}
+                        </div>
+                      </li>
+                    );
+                })}
               </ul>
             )}
           </div>
@@ -374,18 +554,18 @@ const App: React.FC = () => {
   const [language, setLanguage] = useState<Language>('en');
   const [messages, setMessages] = useState<Message[]>([
     {
+      id: crypto.randomUUID(),
       role: Role.MODEL,
       content: translations['en'].initialMessage,
     },
   ]);
   const [isLoading, setIsLoading] = useState(false);
-  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const aiRef = useRef<GoogleGenAI | null>(null);
 
   useEffect(() => {
-    if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-    }
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   useEffect(() => {
@@ -402,24 +582,59 @@ const App: React.FC = () => {
         return prev;
     });
   }, [language]);
+
+  useEffect(() => {
+    const handleEsc = (event: KeyboardEvent) => {
+       if (event.key === 'Escape') {
+        setIsHistoryModalOpen(false);
+       }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => {
+        window.removeEventListener('keydown', handleEsc);
+    };
+}, []);
   
-  const handleFeedback = (messageIndex: number, newFeedback: 'up' | 'down') => {
+  const handleFeedback = (messageId: string, newFeedback: 'up' | 'down') => {
+    let updatedMessage: Message | undefined;
     setMessages(prevMessages => 
-        prevMessages.map((msg, index) => {
-            if (index === messageIndex) {
-                // If the current feedback is the same as the new one, toggle it off.
-                // Otherwise, set it to the new feedback.
+        prevMessages.map((msg) => {
+            if (msg.id === messageId) {
                 const updatedFeedback = msg.feedback === newFeedback ? undefined : newFeedback;
-                return { ...msg, feedback: updatedFeedback };
+                updatedMessage = { ...msg, feedback: updatedFeedback };
+                return updatedMessage;
             }
             return msg;
         })
     );
+     if (updatedMessage) {
+        try {
+            const historyString = localStorage.getItem(FEEDBACK_HISTORY_KEY);
+            const history: Record<string, FeedbackEntry> = historyString ? JSON.parse(historyString) : {};
+
+            if (updatedMessage.feedback) { // 'up' or 'down'
+                history[messageId] = {
+                    id: messageId,
+                    content: updatedMessage.content,
+                    role: updatedMessage.role,
+                    feedback: updatedMessage.feedback,
+                    timestamp: new Date().toISOString(),
+                };
+            } else { // undefined, feedback was toggled off
+                delete history[messageId];
+            }
+
+            localStorage.setItem(FEEDBACK_HISTORY_KEY, JSON.stringify(history));
+        } catch (error) {
+            console.error("Failed to update feedback history in localStorage:", error);
+        }
+    }
   };
 
   const handleClearChat = () => {
     setMessages([
         {
+            id: crypto.randomUUID(),
             role: Role.MODEL,
             content: translations[language].initialMessage,
         },
@@ -454,12 +669,10 @@ const App: React.FC = () => {
       return;
     }
 
-    const userMessage: Message = { role: Role.USER, content: text };
-    setMessages((prev) => [...prev, userMessage]);
+    const userMessage: Message = { id: crypto.randomUUID(), role: Role.USER, content: text };
+    const modelMessage: Message = { id: crypto.randomUUID(), role: Role.MODEL, content: "" };
+    setMessages((prev) => [...prev, userMessage, modelMessage]);
     setIsLoading(true);
-
-    const modelMessage: Message = { role: Role.MODEL, content: "" };
-    setMessages((prev) => [...prev, modelMessage]);
 
     try {
       const history = messages.map(msg => ({
@@ -478,23 +691,19 @@ const App: React.FC = () => {
       });
 
       let firstChunk = true;
+      let sources: Source[] | undefined = undefined;
+
       for await (const chunk of responseStream) {
         if (firstChunk) {
             const groundingMetadata = chunk.candidates?.[0]?.groundingMetadata;
             if (groundingMetadata?.groundingChunks) {
-                const sources: Source[] = groundingMetadata.groundingChunks
+                sources = groundingMetadata.groundingChunks
                 .map((c: any) => ({
                     uri: c.web?.uri ?? '',
                     title: c.web?.title ?? 'Untitled Source',
                     snippet: c.web?.snippet,
                 }))
                 .filter((s: Source) => s.uri);
-
-                 setMessages((prev) => {
-                    const lastMsg = prev[prev.length - 1];
-                    const updatedMsg = { ...lastMsg, sources: sources };
-                    return [...prev.slice(0, -1), updatedMsg];
-                });
             }
             firstChunk = false;
         }
@@ -502,7 +711,11 @@ const App: React.FC = () => {
         const chunkText = chunk.text;
         setMessages((prev) => {
             const lastMsg = prev[prev.length - 1];
-            const updatedMsg = { ...lastMsg, content: lastMsg.content + chunkText };
+            const updatedMsg = { 
+                ...lastMsg, 
+                content: lastMsg.content + chunkText,
+                sources: lastMsg.sources || sources,
+            };
             return [...prev.slice(0, -1), updatedMsg];
         });
       }
@@ -510,7 +723,7 @@ const App: React.FC = () => {
         console.error("Error generating content:", error);
         setMessages((prev) => {
             const lastMsg = prev[prev.length-1];
-            const updatedMsg = { ...lastMsg, content: "Sorry, I encountered an error. Please try again." };
+            const updatedMsg = { ...lastMsg, content: translations[language].apiError, isError: true };
             return [...prev.slice(0, -1), updatedMsg];
         });
     } finally {
@@ -522,6 +735,14 @@ const App: React.FC = () => {
     <div className="h-screen w-screen bg-slate-900 flex flex-col font-sans text-gray-200">
         <header className="relative p-4 bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 shadow-md">
             <div className="absolute top-1/2 -translate-y-1/2 right-4 flex items-center space-x-1 text-sm">
+                <button 
+                    onClick={() => setIsHistoryModalOpen(true)}
+                    className="p-2 rounded-md transition-colors text-slate-400 hover:text-white hover:bg-slate-700/50"
+                    title="View Feedback History"
+                    aria-label="View feedback history"
+                >
+                    <FeedbackHistoryIcon />
+                </button>
                 <button 
                     onClick={handleExportChat}
                     className="p-2 rounded-md transition-colors text-slate-400 hover:text-white hover:bg-slate-700/50"
@@ -549,17 +770,17 @@ const App: React.FC = () => {
             <p className="text-center text-sm text-slate-400 mt-1">{translations[language].subtitle}</p>
         </header>
 
-        <main ref={chatContainerRef} className="flex-grow overflow-y-auto p-4 md:p-6">
+        <main className="flex-grow overflow-y-auto p-4 md:p-6">
             <div className="max-w-4xl mx-auto">
-                {messages.map((msg, index) => (
+                {messages.map((msg) => (
                     <ChatMessage
-                        key={index}
+                        key={msg.id}
                         message={msg}
                         sourcesTitle={translations[language].sourcesTitle}
-                        onFeedback={(feedback) => handleFeedback(index, feedback)}
+                        onFeedback={(feedback) => handleFeedback(msg.id, feedback)}
                     />
                 ))}
-                {isLoading && messages[messages.length-1].role === Role.USER && (
+                {isLoading && messages[messages.length - 1]?.role === Role.MODEL && !messages[messages.length - 1]?.content && (
                     <div className="flex items-start gap-4 my-4 justify-start">
                         <BotIcon />
                         <div className="max-w-xl p-4 rounded-xl shadow-md bg-slate-800 text-gray-200 rounded-tl-none flex items-center space-x-2">
@@ -569,8 +790,9 @@ const App: React.FC = () => {
                         </div>
                     </div>
                 )}
+                <div ref={messagesEndRef} />
             </div>
-             {messages.length === 1 && (
+             {messages.length <= 2 && ( // Show prompts if only initial message or user's first message is present
                 <SuggestedPrompts
                     prompts={translations[language].suggestedPrompts}
                     onSelectPrompt={handleSendMessage}
@@ -582,6 +804,12 @@ const App: React.FC = () => {
         <footer className="w-full max-w-4xl mx-auto">
             <ChatInput onSendMessage={handleSendMessage} isLoading={isLoading} placeholder={translations[language].inputPlaceholder} />
         </footer>
+
+        <FeedbackHistoryModal 
+            isOpen={isHistoryModalOpen} 
+            onClose={() => setIsHistoryModalOpen(false)} 
+            translations={translations[language]} 
+        />
     </div>
   );
 };

@@ -11,8 +11,10 @@ export interface Source {
 }
 
 export interface Message {
+  id: string;
   role: Role;
   content: string;
   sources?: Source[];
   feedback?: 'up' | 'down';
+  isError?: boolean;
 }
